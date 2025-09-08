@@ -1,0 +1,89 @@
+name: Run pin.py every 3 days
+
+permissions:
+  contents: write
+
+on:
+  schedule:
+    - cron: "0 0 */3 * *"  # every 3 days at midnight UTC
+  workflow_dispatch:
+
+jobs:
+  run-pin-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true  # ensure GITHUB_TOKEN is used for push (default)
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Cache pip packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Download Affiliate.zip from Google Drive
+        shell: powershell
+        run: |
+          $url = '${{ secrets.GDRIVE_PIN_URL }}'
+          $output = 'Affiliate.zip'
+          Invoke-WebRequest -Uri $url -OutFile $output -UseBasicParsing
+          if (-not (Test-Path $output)) {
+            throw "Download failed: $output not found."
+          }
+
+      - name: Unzip Affiliate.zip
+        shell: powershell
+        run: |
+          Expand-Archive -Path Affiliate.zip -DestinationPath . -Force
+          Remove-Item Affiliate.zip
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install webdriver-manager
+
+      - name: Auto-update Google Chrome
+        shell: powershell
+        run: |
+          if (-not (Get-Command choco -ErrorAction SilentlyContinue)) {
+            Set-ExecutionPolicy Bypass -Scope Process -Force
+            [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
+            Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+          }
+          choco upgrade googlechrome -y --ignore-checksums
+
+      - name: Place required files near pin_git.py
+        run: |
+          # Assuming pex2.py is in the root directory
+          # Files are already in repo root after checkout, so no move needed if pex2.py is in root
+          # If pex2.py is in subfolder, adjust paths here
+          echo "Files assumed already in correct location"
+
+      - name: Run pin_git.py
+        run: python pin_git.py
+
+      - name: Commit and push updated tracking files if changed
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add processed_product_asins.txt scheduled_times.txt uploaded_image_paths.txt
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Update tracking files from workflow run"
+            git push origin HEAD:refs/heads/main
+          fi
