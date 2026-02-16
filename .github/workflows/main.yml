@@ -5,7 +5,7 @@ permissions:
 
 on:
   schedule:
-    - cron: "0 0 * * *"   # every day at 00:00 UTC
+    - cron: "0 0 * * *"  # every 3 days at midnight UTC
   workflow_dispatch:
 
 jobs:
@@ -71,6 +71,8 @@ jobs:
           echo "Files assumed already in correct location"
 
       - name: Run pin_git.py
+        env:
+          GITHUB_TOKEN: ${{ secrets.API_TOKEN_GITHUB }}
         run: python pin_git.py
 
       - name: Commit and push updated tracking files if changed
