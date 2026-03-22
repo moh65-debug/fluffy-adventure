@@ -1,4 +1,4 @@
-name: Run pin.py every 3 days
+name: Run pin.py everyday
 
 permissions:
   contents: write
