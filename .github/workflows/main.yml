@@ -5,8 +5,7 @@ permissions:
 
 on:
   schedule:
-    - cron: "0 0 * * *"  # midnight UTC
-    - cron: "0 12 * * *" # noon UTC
+    - cron: "0 0 * * *"  # everyday at midnight UTC
   workflow_dispatch:
 
 jobs:
@@ -32,21 +31,21 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
 
-      - name: Download Affiliate.zip from Google Drive
+      - name: Download Affiliate_Home.zip from Google Drive
         shell: powershell
         run: |
           $url = '${{ secrets.GDRIVE_PIN_URL }}'
-          $output = 'Affiliate.zip'
+          $output = 'Affiliate_Home.zip'
           Invoke-WebRequest -Uri $url -OutFile $output -UseBasicParsing
           if (-not (Test-Path $output)) {
             throw "Download failed: $output not found."
           }
 
-      - name: Unzip Affiliate.zip
+      - name: Unzip Affiliate_Home.zip
         shell: powershell
         run: |
-          Expand-Archive -Path Affiliate.zip -DestinationPath . -Force
-          Remove-Item Affiliate.zip
+          Expand-Archive -Path Affiliate_Home.zip -DestinationPath . -Force
+          Remove-Item Affiliate_Home.zip
 
       - name: Install Python dependencies
         run: |
@@ -73,6 +72,9 @@ jobs:
 
       - name: Run pin_git.py
         run: python pin_git.py
+
+      - name: Run autosaver.py
+        run: python autosaver.py
 
       - name: Commit and push updated tracking files if changed
         shell: bash
